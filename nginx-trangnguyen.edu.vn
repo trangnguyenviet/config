@@ -1,0 +1,81 @@
+upstream trangnguyen {
+	#ip_hash;
+	least_conn;
+	server 127.0.0.1:8008;
+	server 172.16.60.87:8008;
+}
+
+server {
+	listen 80 ;
+	#server_name test.trangnguyen.edu.vn;
+	server_name trangnguyen.edu.vn www.trangnguyen.edu.vn test.trangnguyen.edu.vn;
+	#access_log /var/log/nginx/access.trangnguyen.log;
+	location / {
+		proxy_http_version 1.1;
+		proxy_set_header Server 'Windows-Server-10';
+		proxy_set_header X-Powered-By 'MVTHP-2015';
+		proxy_set_header X-Real-IP  $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header Host $host;
+
+		#proxy_pass http://127.0.0.1:8008;
+		proxy_pass http://trangnguyen;
+	}
+
+	location /uploads/ {
+		#proxy_http_version 1.1;
+		#proxy_set_header Server 'Windows-Server-10';
+		#proxy_set_header X-Powered-By 'MVTHP-2015';
+		#proxy_set_header X-Real-IP  $remote_addr;
+		#proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		#proxy_set_header Host $host;
+
+		proxy_pass http://admin.trangnguyen.edu.vn;
+	}
+
+	location /avatar {
+		proxy_pass http://admin.trangnguyen.edu.vn;
+		#error_page 404 = @noimg;
+	}
+
+	location /socket.io {
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_http_version 1.1;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header Host $host;
+
+		#proxy_pass http://127.0.0.1:8080;
+		#proxy_pass  http://203.113.137.175;
+		proxy_pass http://172.16.60.87:8080;
+	}
+}
+
+server {
+	listen 80 ;
+	root /home/tanmv/admin;
+	index index.php index.html index.htm;
+
+	access_log /var/log/nginx/access.admin.log;
+	error_log /var/log/nginx/error.admin.log;
+
+	server_name admin.trangnguyen.edu.vn;
+
+	location / {
+		try_files $uri $uri/ =404;
+	}
+
+	location /avatar {
+		error_page 404 =  @noimg;
+	}
+
+	location @noimg {
+		return 301 /avatar/no_avatar.jpg;
+	}
+	location ~ \.php$ {
+		fastcgi_split_path_info ^(.+\.php)(/.+)$;
+		fastcgi_pass unix:/var/run/php5-fpm.sock;
+		fastcgi_index index.php;
+		include fastcgi_params;
+	}
+}
